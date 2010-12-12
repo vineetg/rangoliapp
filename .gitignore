@@ -1,0 +1,11 @@
+# Temporary files and OS X config files
+*.DS_Store
+*.bk
+*.del
+*.new
+*.pyc
+*.swo
+*.swp
+
+# Database migration files
+music/migrations/

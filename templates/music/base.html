@@ -1,0 +1,396 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+{% load staticfiles %}
+    {% block css %}
+    <link rel="stylesheet" type="text/css" href="{% get_staticfiles_prefix %}refresh.css" />
+    <link href="{% get_staticfiles_prefix %}jplayer.blue.monday.css" rel="stylesheet" type="text/css" /> 
+    {% endblock css %}
+
+    {% block javascript %}
+    <script type="text/javascript" src="{% get_staticfiles_prefix %}jquery.js"></script>
+    <script type="text/javascript" src="{% get_staticfiles_prefix %}jquery.jplayer.min.js"></script>
+    <script type="text/javascript" src="{% get_staticfiles_prefix %}jquery.cookie.js"></script>
+    {% endblock javascript %}
+
+	<script type="text/javascript">
+
+	$(document).ready(function() {
+        // existing
+        $('#sidebar a[class="nav"]').click(function(event) {
+            event.preventDefault();
+            $("#main1").html("Loading <img src='{% get_staticfiles_prefix %}load1.gif'</img>").load($(this).attr('href')).css({opacity:0}).stop().animate({opacity: '1'},"slow");
+        });
+
+        // Same logic as above. But kept separate due to different div
+        $('#main1 a[class!="songurl"]').live('click', function(event) {
+            event.preventDefault();
+            $("#main1").html("Loading <img src='{% get_staticfiles_prefix %}load1.gif'</img>").load($(this).attr('href')).css({opacity:0}).stop().animate({opacity: '1'},"slow");
+        });
+
+        $('span#repeat_all_one').click(function(e) {
+            alert('Not yet implemented!');
+        });
+
+        $('span#shuffle_on_off').click(function(e) {
+            alert('Not yet implemented!');
+        });
+
+        $('span#clear_all').click(function(e) {
+            $("#jquery_jplayer").jPlayer("stop");
+            myPlayList = []; 
+            $("#jplayer_playlist ul").empty();
+        });
+
+        $('span#add').live('click', function(event) {
+            // new stuff
+            $(this).animate(
+                {
+                    paddingLeft: '10px',
+                    opacity: 0.50
+                },
+                'medium',
+                function() {$(this).text('Added');}
+            );
+            //$(this).animate({ paddingLeft: '30px', opacity:'toggle' }, 'slow');
+
+            //~ new stuff
+            var $song_title = $(this).parent().children('a').attr('text');
+            var $song_url = $(this).parent().children('a').attr('href');
+
+            //$("#jplayer_playlist ul li[class='jplayer_playlist_item_last']").removeClass("jplayer_playlist_item_last");
+            $("#jplayer_playlist ul li").each(function(index) {
+                if ($(this).hasClass("jplayer_playlist_item_last")) {
+                $(this).removeClass("jplayer_playlist_item_last");
+                }
+            });
+            
+            var i = $("#jplayer_playlist ul li").size(); // Total number of songs in the list currently
+			var listItem = "<li class='jplayer_playlist_item_last'>";
+		    listItem += "<a href='#' id='jplayer_playlist_item_"+i+"' tabindex='1' url='" +$song_url+"'>"+ $song_title +"</a></li>";
+		    $("#jplayer_playlist ul").append(listItem);
+            myPlayList[i] = {name:$song_title, mp3:$song_url};
+
+            $.cookie("myPlayList", myPlayList.toSource());
+          
+            $("#jplayer_playlist_item_"+i).data( "index", i ).click( function() {
+			    var index = $(this).data("index");
+			    //if (playItem != index) {
+			        playListChange( index );
+			    //} else {
+			    //    $("#jquery_jplayer").jPlayer("play");
+			    //}
+			    $(this).blur();
+			    return false;
+            });
+
+            $('li a[class="songurl"]').live('click', function(e) {
+                $(this).unbind('click');
+                e.preventDefault();
+                $("#jpId").jPlayer( "setFile", $(this).attr('href')).jPlayer("play"); 
+            });
+            
+        });
+
+	    $('div.jp-interface').click(function(event) {
+	        var $d = $('div#jplayer_playlist');
+	        if ($d.is( ":visible" )){
+	            $d.slideUp(500);
+	        } else {
+	            $d.slideDown(500);
+	        }
+	    });
+
+    //~ existing
+		var playItem = 0;
+	
+		var myPlayList = [];
+	        if($.cookie("myPlayList") != null) {
+		        var myPlayList = eval($.cookie("myPlayList"));
+	        } else {
+	            var myPlayList = [];
+	        }
+	
+		// Local copy of jQuery selectors, for performance.
+		var jpPlayTime = $("#jplayer_play_time");
+		var jpTotalTime = $("#jplayer_total_time");
+		var jpStatus = $("#demo_status"); // For displaying information about jPlayer's status in the demo page
+	
+		$("#jquery_jplayer").jPlayer({
+			ready: function() {
+				displayPlayList();
+				playListInit(true); // Parameter is a boolean for autoplay.
+				demoInstanceInfo(this.element, $("#demo_info")); // This displays information about jPlayer's configuration in the demo page
+			},
+	        swfPath: "{% get_staticfiles_prefix %}",
+		})
+		.jPlayer("onProgressChange", function(loadPercent, playedPercentRelative, playedPercentAbsolute, playedTime, totalTime) {
+			jpPlayTime.text($.jPlayer.convertTime(playedTime));
+			jpTotalTime.text($.jPlayer.convertTime(totalTime));
+	
+			demoStatusInfo(this.element, jpStatus); // This displays information about jPlayer's status in the demo page
+		})
+		.jPlayer("onSoundComplete", function() {
+			playListNext();
+		});
+	
+		$("#jplayer_previous").click( function() {
+			playListPrev();
+			$(this).blur();
+			return false;
+		});
+	
+		$("#jplayer_next").click( function() {
+			playListNext();
+			$(this).blur();
+			return false;
+		});
+	
+		function displayPlayList() {
+			$("#jplayer_playlist ul").empty();
+			for (i=0; i < myPlayList.length; i++) {
+				var listItem = (i == myPlayList.length-1) ? "<li class='jplayer_playlist_item_last'>" : "<li>";
+				listItem += "<a href='#' id='jplayer_playlist_item_"+i+"' tabindex='1'>"+ myPlayList[i].name +"</a></li>";
+				$("#jplayer_playlist ul").append(listItem);
+				$("#jplayer_playlist_item_"+i).data( "index", i ).click( function() {
+					var index = $(this).data("index");
+					if (playItem != index) {
+						playListChange( index );
+					} else {
+						$("#jquery_jplayer").jPlayer("play");
+					}
+					$(this).blur();
+					return false;
+				});
+			}
+		}
+	
+		function playListInit(autoplay) {
+			if(autoplay) {
+				playListChange( playItem );
+			} else {
+				playListConfig( playItem );
+			}
+		}
+	
+		function playListConfig( index ) {
+			$("#jplayer_playlist_item_"+playItem).removeClass("jplayer_playlist_current").parent().removeClass("jplayer_playlist_current");
+			$("#jplayer_playlist_item_"+index).addClass("jplayer_playlist_current").parent().addClass("jplayer_playlist_current");
+			playItem = index;
+	        if (myPlayList.length > 0) {
+	            $("#jquery_jplayer").jPlayer("setFile", myPlayList[playItem].mp3, myPlayList[playItem].ogg);
+	        }
+		}
+	
+		function playListChange( index ) {
+			playListConfig( index );
+			$("#jquery_jplayer").jPlayer("play");
+		}
+	
+		function playListNext() {
+			var index = (playItem+1 < myPlayList.length) ? playItem+1 : 0;
+			playListChange( index );
+		}
+	
+		function playListPrev() {
+			var index = (playItem-1 >= 0) ? playItem-1 : myPlayList.length-1;
+			playListChange( index );
+		}
+	        
+		function demoInstanceInfo(myPlayer, myInfo) {
+			var jPlayerInfo = "<p>This jPlayer instance is running in your browser using ";
+		
+			if(myPlayer.jPlayer("getData", "usingFlash")) {
+				jPlayerInfo += "<strong>Flash</strong> with ";
+			} else {
+				jPlayerInfo += "<strong>HTML5</strong> with ";
+			}
+			
+			if(myPlayer.jPlayer("getData", "usingMP3")) {
+				jPlayerInfo += "<strong>MP3</strong>";
+			} else {
+				jPlayerInfo += "<strong>OGG</strong>";
+			}
+			
+			
+			jPlayerInfo += " files.<br />This instance is using the constructor options:<br /><code>$(\"#" + myPlayer.jPlayer("getData", "id") + "\").jPlayer({<br />";
+			
+			jPlayerInfo += "&nbsp;&nbsp;&nbsp;nativeSupport: " + myPlayer.jPlayer("getData", "nativeSupport");
+			jPlayerInfo += ", oggSupport: " + myPlayer.jPlayer("getData", "oggSupport");
+			jPlayerInfo += ", customCssIds: " + myPlayer.jPlayer("getData", "customCssIds");
+			
+			jPlayerInfo += "<br />});</code></p>";
+			myInfo.html(jPlayerInfo);
+		}
+		
+		function demoStatusInfo(myPlayer, myInfo) {
+			var jPlayerStatus = "<p>jPlayer is ";
+			jPlayerStatus += (myPlayer.jPlayer("getData", "diag.isPlaying") ? "playing" : "stopped");
+			jPlayerStatus += " at time: " + Math.floor(myPlayer.jPlayer("getData", "diag.playedTime")) + "ms.";
+			jPlayerStatus += " (tt: " + Math.floor(myPlayer.jPlayer("getData", "diag.totalTime")) + "ms";
+			jPlayerStatus += ", lp: " + Math.floor(myPlayer.jPlayer("getData", "diag.loadPercent")) + "%";
+			jPlayerStatus += ", ppr: " + Math.floor(myPlayer.jPlayer("getData", "diag.playedPercentRelative")) + "%";
+			jPlayerStatus += ", ppa: " + Math.floor(myPlayer.jPlayer("getData", "diag.playedPercentAbsolute")) + "%)</p>"
+			myInfo.html(jPlayerStatus);
+		}
+	});
+	</script>
+	
+    <title>Rangoli App : {% block title %}Welcome{% endblock %}</title>
+</head>
+<body>
+<!-- wrap starts here -->
+<div id="wrap">
+		
+		<!--header -->
+		<div id="header">			
+				
+			<h1 id="logo-text"><font color=gold>R</font><font color=DarkSalmon>a</font><font color=greenyellow>n</font><font color=orange>g</font><font color=aqua>o</font><font color=plum>l</font><font color=deeppink>i</font></h1>		
+			<h2 id="slogan">A south asian social music engine</h2>
+				
+			<form class="search" method="post" action="#">
+				<p>
+	  			<input class="textbox" type="text" name="search_query" value="" />
+	 			<input class="button" type="submit" name="Submit" value="Search" />
+				</p>
+			</form>			
+				
+		</div>
+		
+		<!-- menu -->	
+		<div  id="menu">
+			<ul>
+				<li id="current"><a href="index.html">Home</a></li>
+				<li><a href="/music/">Music</a></li>
+				<li><a href="/admin/" target="_new">Admin</a></li>
+				<li><a href="/settings/">Settings</a></li>
+				<li><a href="/about/">About</a></li>
+			</ul>
+		</div>					
+			
+		<!-- content-wrap starts here -->
+		<div id="content-wrap">
+				
+			<div id="sidebar">
+            {% block sidebar %}
+					
+				<h1>Navigate</h1>
+				<div class="left-box">
+					<ul class="sidemenu">				
+                        <li><a href="/music/" class="nav">Home</a></li>
+                        <li><a href="/music/albums/" class="nav">Albums</a></li>
+                        <li><a href="/music/artists/" class="nav">Artists</a></li>
+                        <li><a href="/music/songs/" class="nav">Songs</a></li>
+					</ul>	
+				</div>
+				
+				<h1>Wise Words</h1>
+				<div class="left-box">
+					<p>&quot;To be concious that you are ignorant of the
+					facts is a great step to knowledge&quot; </p>
+					
+					<p class="align-right">- Benjamin Disraeli</p>
+				</div>	
+				
+				<h1>Support Styleshout</h1>
+				<div class="left-box">
+					<p>If you are interested in supporting my work and would like to contribute, you are
+					welcome to make a small donation through the 
+					<a href="http://www.styleshout.com/">donate link</a> on my website - it will 
+					be a great help and will surely be appreciated.</p>
+				</div>
+							
+            {% endblock sidebar %}
+			</div>
+				
+			<div id="main">
+	            <div id="main1">
+	            {% block main %}
+					
+					<a name="TemplateInfo"></a>
+					<h1>Template Info</h1>
+					
+	                <object width="640" height="385"><param name="movie" value="http://www.youtube.com/v/9rXwBmGyMRo?fs=1&amp;hl=en_US"></param><param name="allowFullScreen" value="true"></param><param name="allowscriptaccess" value="always"></param><embed src="http://www.youtube.com/v/9rXwBmGyMRo?fs=1&amp;hl=en_US" type="application/x-shockwave-flash" allowscriptaccess="always" allowfullscreen="true" width="640" height="385"></embed></object>
+					
+					<p class="post-footer align-right">					
+						<a href="index.html" class="readmore">Read more</a>
+						<a href="index.html" class="comments">Comments (7)</a>
+						<span class="date">Oct 01, 2006</span>	
+					</p>
+				
+					<a name="SampleTags"></a>
+					<h1>Sample Tags</h1>
+					
+					<h3>Code</h3>				
+					<p><code>
+					code-sample { <br />
+					font-weight: bold;<br />
+					font-style: italic;<br />				
+					}		
+					</code></p>	
+	            {% endblock main %}
+	            </div>
+	            <!--<div class="clear" style="clear:both;line-height: 1px;"></div>-->
+	            <!--<div id="main-bottom">-->
+		            <div id="jquery_jplayer"></div>
+					<div class="jp-playlist-player">
+                        <div id="jp-playlist-controls">
+                            <span id="repeat_all_one" class="rounded-corner">Repeat All</span>
+                            <span id="shuffle_on_off" class="rounded-corner">Shuffle Off</span>
+                            <span id="clear_all" class="rounded-corner">Clear All</span> 
+                        </div>
+						<div id="jplayer_playlist" class="jp-playlist">
+							<ul>
+								<!-- The function displayPlayList() uses this unordered list -->
+								<li></li>
+							</ul>
+						</div>
+						<div class="jp-interface">
+							<ul class="jp-controls">
+								<li><a href="#" id="jplayer_play" class="jp-play" tabindex="1">play</a></li>
+								<li><a href="#" id="jplayer_pause" class="jp-pause" tabindex="1">pause</a></li>
+								<li><a href="#" id="jplayer_stop" class="jp-stop" tabindex="1">stop</a></li>
+								<li><a href="#" id="jplayer_volume_min" class="jp-volume-min" tabindex="1">min volume</a></li>
+								<li><a href="#" id="jplayer_volume_max" class="jp-volume-max" tabindex="1">max volume</a></li>
+								<li><a href="#" id="jplayer_previous" class="jp-previous" tabindex="1">previous</a></li>
+								<li><a href="#" id="jplayer_next" class="jp-next" tabindex="1">next</a></li>
+							</ul>
+							<div class="jp-progress">
+								<div id="jplayer_load_bar" class="jp-load-bar">
+									<div id="jplayer_play_bar" class="jp-play-bar"></div>
+								</div>
+							</div>
+							<div id="jplayer_volume_bar" class="jp-volume-bar">
+								<div id="jplayer_volume_bar_value" class="jp-volume-bar-value"></div>
+							</div>
+			
+							<div id="jplayer_play_time" class="jp-play-time"></div>
+							<div id="jplayer_total_time" class="jp-total-time"></div>
+						</div>
+
+					</div>
+	            <!--</div>  new test div -->
+			</div>
+		</div>
+		<!-- content-wrap ends here -->	
+					
+		<!--footer starts here-->
+		<div id="footer">
+	        <p>
+		        &copy; 2010 <strong>Rangoli Music</strong> | 
+		        Design by: <a href="http://vineetgupta.me/">conundrum</a> | 
+		        Valid <a href="http://validator.w3.org/check?uri=referer">XHTML</a> | 
+		        <a href="http://jigsaw.w3.org/css-validator/check/referer">CSS</a>
+		
+		        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		
+		        <a href="/">Home</a>&nbsp;|&nbsp;
+		        <a href="/sitemap/">Sitemap</a>&nbsp;|&nbsp;
+		        <a href="/rss/">RSS Feed</a>
+	        </p>
+		</div>	
+</div>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+{% comment %}
+{% extends "music/base.html" %}
+{% endcomment %}
+
+{% comment %}
+{% block main %}
+{% endcomment %}
+    <h1>{{ artist_name }}</h1>
+    <p>
+        <img src={{ artist_pic }}>
+    </p>
+    <p>
+        {{ artist_bio }}
+    </p>
+    <ul>
+        {% for song in song_list %}
+            <li><a href='{{ song.url }}' class='songurl'>{{ song.name }}</a>&nbsp;<span id="add">Add &gt;</span></li>
+        {% endfor %}
+    </ul>
+{% comment %}
+{% endblock main %}
+{% endcomment %}
+
